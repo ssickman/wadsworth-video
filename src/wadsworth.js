@@ -1,5 +1,26 @@
 //http://gdata.youtube.com/feeds/api/videos?q=&v=2&fields=entry%28id,title,media:group%28yt:duration,yt:videoid,yt:uploaded%29,yt:statistics%29&alt=json
 
+$(document).ready(function(){
+	$(window).bind('hashchange', function() {
+	// 	console.log('new res page load');
+	});
+
+});
+
+MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
+
+var observer = new MutationObserver(function(mutations, observer) {
+    // fired when a mutation occurs
+    console.log('mutation');
+    // ...
+});
+
+observer.observe(document, {
+  subtree: true,
+  attributes: true
+  //...
+});
+
 function isYoutubeLink(link)
 {  
 	//console.log(link); console.log(link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1);
@@ -50,7 +71,8 @@ for (i = 0; i < aTags.length; i++) {
 	
 		if (typeof(id) != 'undefined') {
 
-			console.log(a.href + ' ' + id);
+			//console.log(a.href + ' ' + id);
+			
 			ytLinks[a.href] = id;
 			ytIds.push(encodeURIComponent('"' + id + '"'));
 		}
