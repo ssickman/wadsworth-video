@@ -1,14 +1,21 @@
 {
-  "manifest_version": 2,
-
-  "name": "Wadsworth Video Viwer",
-  "description": "Watch youtube videos starting at the Wadsworth Constant time (http://www.reddit.com/r/pics/comments/kxfxy/and_so_ends_20_years_of_frustration/c2o1cyy).",
-  "version": "0.1",
-
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["jquery-2.1.0.min.js", "wadsworth.js"]
-    }
-  ]
+	"manifest_version": 2,
+	
+	"name": "Wadsworth Video Viewer",
+	"description": "Watch youtube videos starting at the Wadsworth Constant time (http://www.reddit.com/r/pics/comments/kxfxy/and_so_ends_20_years_of_frustration/c2o1cyy).",
+	"version": "0.1",
+	
+	"options_page": "options.html",
+	
+	"content_scripts": [
+		{
+			"matches": ["http://*/*", "https://*/*"],
+			"js": ["jquery-2.1.0.min.js", "wadsworth.js"]
+		}
+	],
+	
+	"background": {
+		"scripts": ["background.js"],
+		"persistent": false
+	}
 }

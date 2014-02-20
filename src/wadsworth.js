@@ -1,19 +1,20 @@
 //http://gdata.youtube.com/feeds/api/videos?q=&v=2&fields=entry%28id,title,media:group%28yt:duration,yt:videoid,yt:uploaded%29,yt:statistics%29&alt=json
 
-$(document).ready(function(){
-	$(window).bind('hashchange', function() {
-	// 	console.log('new res page load');
-	});
-
-});
 
 MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
 
 var observer = new MutationObserver(function(mutations, observer) {
     // fired when a mutation occurs
     //console.log('mutation');
-    l = new LinkAppender();
-	l.getLinks().getYtIds().getYtData(l.ytIds);
+	chrome.runtime.sendMessage({method: "getLocalStorage", key: "skipPercentage"}, function(response) {
+		l = new LinkAppender();
+		l.skipPercentage = response.data;
+		l.getLinks().getYtIds().getYtData(l.ytIds);
+	 	//console.log(l.skipPercentage);
+	});
+	   
+   
+   
 });
 
 observer.observe(document, {
@@ -24,44 +25,60 @@ observer.observe(document, {
 
 function LinkAppender() 
 {
-	console.log('starting link appender');
+	//console.log('starting link appender');
+	var self = this;
+	
+	//console.log(chrome.extension.getBackgroundPage().localStorage['skipPercentage']);
+	
+	
+	if (!self.skipPercentage) {
+		self.skipPercentage = 33;
+	}
+	
+	//console.log(self.skipPercentage);
 
-	this.ytLinks     = {};
-	this.ytDurations = {};
-	this.ytIds       = [];
+	self.ytLinks     = {};
+	self.ytDurations = {};
+	self.ytIds       = [];
 	
-	this.getYoutubeIDRegex = /\/?[\&|\?]?v\/?=?([\w\-]{11})&?/i;
-	this.getShortenedYoutubeIDRegex = /([\w\-]{11})&?/i;
-	this.shortened = /youtu\.be/i;
+	self.getYoutubeIDRegex = /\/?[\&|\?]?v\/?=?([\w\-]{11})&?/i;
+	self.getShortenedYoutubeIDRegex = /([\w\-]{11})&?/i;
+	self.shortened = /youtu\.be/i;
 	
-	this.appendedClass  = 'wv-time-appended';
-	this.processedClass = 'wv-processed';
+	self.appendedClass  = 'wv-time-appended';
+	self.processedClass = 'wv-processed';
 	
-	this.getLinks = function()
+	self.getLinks = function()
 	{
-		this.aTags = $(this.getASelector());
+		self.aTags = $(self.getASelector());
 		
 		return this;
 	}
 	
-	this.getASelector = function()
+	self.getASelector = function()
 	{
-		return 'a:not(.' + this.appendedClass + ' .' + this.processedClass + ')';
+		return 'a:not(.' + self.appendedClass + ' .' + self.processedClass + ')';
 	}
 		
-	this.isYoutubeLink = function(link, debug)
+	self.isYoutubeLink = function(link, debug)
 	{  		
 		if (debug) {
 			console.log(link);
 			console.log(typeof(link) == 'string' && link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1);
 		}
 		
-		return typeof(link) == 'string' && link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1 ;
+		//return typeof(link) == 'string' && link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1 ;
 		
 		if(
 			typeof(link) == 'string' && 
 			link.indexOf('t=') == -1 &&
-			link.indexOf('youtube.com/watch') > -1 
+			(
+				link.indexOf('youtube.com/watch') > -1 ||
+				(
+					window.location.hostname.indexOf('youtube.com') > -1 &&
+					link.indexOf('/watch') > -1 
+				)
+			)
 		) {
 			return true;
 		} else {
@@ -70,19 +87,19 @@ function LinkAppender()
 
 	}
 	
-	this.getYtIds = function()
+	self.getYtIds = function()
 	{
-		for (i = 0; i < this.aTags.length; i++) {
-			var a = $(this.aTags[i]);
+		for (i = 0; i < self.aTags.length; i++) {
+			var a = $(self.aTags[i]);
 			
-			if (this.isYoutubeLink(a.attr('href'))) {
+			if (self.isYoutubeLink(a.attr('href'))) {
 				
-				match = this.getYoutubeIDRegex.exec(a.attr('href'));
-				isShortened = this.shortened.exec(a.attr('href'));
+				match = self.getYoutubeIDRegex.exec(a.attr('href'));
+				isShortened = self.shortened.exec(a.attr('href'));
 				ytId = null;
 				
 				if (isShortened) {
-					smatch = this.getShortenedYoutubeIDRegex.exec(a.attr('href'));
+					smatch = self.getShortenedYoutubeIDRegex.exec(a.attr('href'));
 					if (smatch) {
 						ytId = smatch[1];
 					}
@@ -91,19 +108,19 @@ function LinkAppender()
 				}
 			
 				if (typeof(ytId) != 'undefined') {			
-					this.ytLinks[a.attr('href')] = ytId;
-					this.ytIds.push(encodeURIComponent('"' + ytId + '"'));
+					self.ytLinks[a.attr('href')] = ytId;
+					self.ytIds.push(encodeURIComponent('"' + ytId + '"'));
 				}
 				
 			}
 		}
 		
-		this.ytIds = $.unique(this.ytIds);
+		self.ytIds = $.unique(self.ytIds);
 		
 		return this;
 	}
 	
-	this.parseAjax = function(data)
+	self.parseAjax = function(data)
 	{
 		if (
 			typeof(data.feed.entry) != 'undefined' &&
@@ -115,26 +132,26 @@ function LinkAppender()
 				entry = data.feed.entry[i];
 	
 				if (typeof(entry) == 'object') {
-					this.ytDurations[entry.id['$t'].replace("tag:youtube.com,2008:video:", '')] = entry['media$group']['yt$duration'].seconds;
+					self.ytDurations[entry.id['$t'].replace("tag:youtube.com,2008:video:", '')] = entry['media$group']['yt$duration'].seconds;
 				}
 			}
 		}
 		
-		for (i = 0; i < this.aTags.length; i++) {
-			var a = $(this.aTags[i]);
+		for (i = 0; i < self.aTags.length; i++) {
+			var a = $(self.aTags[i]);
 			
 			if (
-				this.isYoutubeLink(a.attr('href')) &&
-				typeof(this.ytDurations[this.ytLinks[a.attr('href')]]) != 'undefined'
+				self.isYoutubeLink(a.attr('href')) &&
+				typeof(self.ytDurations[self.ytLinks[a.attr('href')]]) != 'undefined'
 			) {
-				a.attr('href', a.attr('href') + '&t=' + (parseInt(this.ytDurations[this.ytLinks[a.attr('href')]] * .25)));
-				a.addClass(this.processedClass);
+				a.attr('href', a.attr('href') + '&t=' + ( parseInt(self.ytDurations[self.ytLinks[a.attr('href')]] * (self.skipPercentage / 100 ) ) ) );
+				a.addClass(self.processedClass);
 			} 
 		}
 	
 	}
 	
-	this.getYtData = function(ytIds)
+	self.getYtData = function(ytIds)
 	{
 		ytIdsString = ytIds.join('%7C');
 		ytFeedLink  = 'http://gdata.youtube.com/feeds/api/videos?q=' + ytIdsString + '&v=2&fields=entry%28id,title,media:group%28yt:duration,yt:videoid,yt:uploaded%29,yt:statistics%29&alt=json&prettyprint=true';
@@ -150,14 +167,6 @@ function LinkAppender()
 	
 	return this;
 }
-
-l = new LinkAppender();
-l.getLinks().getYtIds().getYtData(l.ytIds);
-
-
-
-
-
 
 
 
