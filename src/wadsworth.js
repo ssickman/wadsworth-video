@@ -11,8 +11,9 @@ MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
 
 var observer = new MutationObserver(function(mutations, observer) {
     // fired when a mutation occurs
-    console.log('mutation');
-    // ...
+    //console.log('mutation');
+    l = new LinkAppender();
+	l.getLinks().getYtIds().getYtData(l.ytIds);
 });
 
 observer.observe(document, {
@@ -21,102 +22,141 @@ observer.observe(document, {
   //...
 });
 
-function isYoutubeLink(link)
-{  
-	//console.log(link); console.log(link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1);
-	return 
-		link.indexOf('t=') == -1 &&
-		link.indexOf('youtube.com/watch') > -1
-	;
-}
+function LinkAppender() 
+{
+	console.log('starting link appender');
 
-
-
-var aTags = document.getElementsByTagName('a');
-
-var ytLinks     = {};
-var ytDurations = {};
-var ytIds       = [];
-
-var getYoutubeIDRegex = /\/?[\&|\?]?v\/?=?([\w\-]{11})&?/i;
-var getShortenedYoutubeIDRegex = /([\w\-]{11})&?/i;
-
-var shortened = /youtu\.be/i;
-				
-
-for (i = 0; i < aTags.length; i++) {
-	var a = aTags[i];
-	//a.innerHTML += '...blahh';
-	//console.log(a.href);
+	this.ytLinks     = {};
+	this.ytDurations = {};
+	this.ytIds       = [];
 	
-	if (
-		a.href.indexOf('t=') == -1 &&
-		a.href.indexOf('youtube.com/watch') > -1
-	) {
-		
-		var match = getYoutubeIDRegex.exec(a.href);
-		var isShortened = shortened.exec(a.href);
-		var id = null;
-		
-		if (isShortened) {
-			var smatch = getShortenedYoutubeIDRegex.exec(a.href);
-			if (smatch) {
-				id = smatch[1];
-			}
-		} else if (match) {
-			id = match[1];
-		} else {
-			//console.log(a.href);
-		}
+	this.getYoutubeIDRegex = /\/?[\&|\?]?v\/?=?([\w\-]{11})&?/i;
+	this.getShortenedYoutubeIDRegex = /([\w\-]{11})&?/i;
+	this.shortened = /youtu\.be/i;
 	
-		if (typeof(id) != 'undefined') {
-
-			//console.log(a.href + ' ' + id);
-			
-			ytLinks[a.href] = id;
-			ytIds.push(encodeURIComponent('"' + id + '"'));
-		}
+	this.appendedClass  = 'wv-time-appended';
+	this.processedClass = 'wv-processed';
+	
+	this.getLinks = function()
+	{
+		this.aTags = $(this.getASelector());
 		
+		return this;
 	}
 	
-}
+	this.getASelector = function()
+	{
+		return 'a:not(.' + this.appendedClass + ' .' + this.processedClass + ')';
+	}
+		
+	this.isYoutubeLink = function(link, debug)
+	{  		
+		if (debug) {
+			console.log(link);
+			console.log(typeof(link) == 'string' && link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1);
+		}
+		
+		return typeof(link) == 'string' && link.indexOf('t=') == -1 && link.indexOf('youtube.com/watch') > -1 ;
+		
+		if(
+			typeof(link) == 'string' && 
+			link.indexOf('t=') == -1 &&
+			link.indexOf('youtube.com/watch') > -1 
+		) {
+			return true;
+		} else {
+			return false;		
+		}
 
-ytIds = $.unique(ytIds);
-ytIds.slice(0,8);
-
-ytIdsString = ytIds.join('%7C');
-ytFeedLink  = 'http://gdata.youtube.com/feeds/api/videos?q=' + ytIdsString + '&v=2&fields=entry%28id,title,media:group%28yt:duration,yt:videoid,yt:uploaded%29,yt:statistics%29&alt=json&prettyprint=true';
-
-
-$.getJSON(ytFeedLink,
-    function(data){
-		if (data.feed.entry['length'] > 0) {
+	}
+	
+	this.getYtIds = function()
+	{
+		for (i = 0; i < this.aTags.length; i++) {
+			var a = $(this.aTags[i]);
+			
+			if (this.isYoutubeLink(a.attr('href'))) {
+				
+				match = this.getYoutubeIDRegex.exec(a.attr('href'));
+				isShortened = this.shortened.exec(a.attr('href'));
+				ytId = null;
+				
+				if (isShortened) {
+					smatch = this.getShortenedYoutubeIDRegex.exec(a.attr('href'));
+					if (smatch) {
+						ytId = smatch[1];
+					}
+				} else if (match) {
+					ytId = match[1];
+				}
+			
+				if (typeof(ytId) != 'undefined') {			
+					this.ytLinks[a.attr('href')] = ytId;
+					this.ytIds.push(encodeURIComponent('"' + ytId + '"'));
+				}
+				
+			}
+		}
+		
+		this.ytIds = $.unique(this.ytIds);
+		
+		return this;
+	}
+	
+	this.parseAjax = function(data)
+	{
+		if (
+			typeof(data.feed.entry) != 'undefined' &&
+			data.feed.entry['length'] > 0
+		) {
 			
 			for (i in data.feed.entry) {
-
+	
 				entry = data.feed.entry[i];
-
+	
 				if (typeof(entry) == 'object') {
-					ytDurations[entry.id['$t'].replace("tag:youtube.com,2008:video:", '')] = entry['media$group']['yt$duration'].seconds;
+					this.ytDurations[entry.id['$t'].replace("tag:youtube.com,2008:video:", '')] = entry['media$group']['yt$duration'].seconds;
 				}
 			}
 		}
 		
-		for (i = 0; i < aTags.length; i++) {
-			var a = aTags[i];
+		for (i = 0; i < this.aTags.length; i++) {
+			var a = $(this.aTags[i]);
 			
 			if (
-				a.href.indexOf('t=') == -1 &&
-				a.href.indexOf('youtube.com/watch') > -1
+				this.isYoutubeLink(a.attr('href')) &&
+				typeof(this.ytDurations[this.ytLinks[a.attr('href')]]) != 'undefined'
 			) {
-			
-				//console.log(ytLinks[a.href]);
-				
-				a.href += '&t=' + (parseInt(ytDurations[ytLinks[a.href]] * .25))
-			}
+				a.attr('href', a.attr('href') + '&t=' + (parseInt(this.ytDurations[this.ytLinks[a.attr('href')]] * .25)));
+				a.addClass(this.processedClass);
+			} 
 		}
+	
+	}
+	
+	this.getYtData = function(ytIds)
+	{
+		ytIdsString = ytIds.join('%7C');
+		ytFeedLink  = 'http://gdata.youtube.com/feeds/api/videos?q=' + ytIdsString + '&v=2&fields=entry%28id,title,media:group%28yt:duration,yt:videoid,yt:uploaded%29,yt:statistics%29&alt=json&prettyprint=true';
+		
+		var self = this;
+		
+		$.getJSON(
+			ytFeedLink,
+		    function(data) {  self.parseAjax(data); }
+		);
+		
+	}
+	
+	return this;
+}
 
-});
+l = new LinkAppender();
+l.getLinks().getYtIds().getYtData(l.ytIds);
+
+
+
+
 
 
 
