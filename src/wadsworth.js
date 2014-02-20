@@ -145,8 +145,10 @@ function LinkAppender()
 				typeof(self.ytDurations[self.ytLinks[a.attr('href')]]) != 'undefined'
 			) {
 				a.attr('href', a.attr('href') + '&t=' + ( parseInt(self.ytDurations[self.ytLinks[a.attr('href')]] * (self.skipPercentage / 100 ) ) ) );
-				a.addClass(self.processedClass);
+				a.addClass(self.appendedClass);
 			} 
+			
+			a.addClass(self.processedClass);
 		}
 	
 	}
